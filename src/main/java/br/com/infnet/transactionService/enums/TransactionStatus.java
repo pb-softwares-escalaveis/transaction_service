@@ -1,0 +1,27 @@
+package br.com.infnet.transactionService.enums;
+
+public enum TransactionStatus {
+
+    TRANSACTION_CREATED,
+    TRANSACTION_WAITING_FOR_PAYMENT,
+    TRANSACTION_PAYMENT_PENDING,
+    TRANSACTION_CLOSED_PAYMENT_CREATED_FAILED,
+    DELIVERY_PENDING,
+    TRANSACTION_FINISHED,
+    TRANSACTION_CLOSED_PAYMENT_FAILED,
+    TRANSACTION_CLOSED_PAYMENT_TIMEOUT,
+    TRANSACTION_CLOSED_DELIVERY_INACTIVE,
+    TRANSACTION_CLOSED_TIMEOUT;
+
+    public boolean isFinal() {
+        return switch (this) {
+            case TRANSACTION_CLOSED_PAYMENT_CREATED_FAILED,
+                 TRANSACTION_FINISHED,
+                 TRANSACTION_CLOSED_PAYMENT_FAILED,
+                 TRANSACTION_CLOSED_PAYMENT_TIMEOUT,
+                 TRANSACTION_CLOSED_DELIVERY_INACTIVE,
+                 TRANSACTION_CLOSED_TIMEOUT -> true;
+            default -> false;
+        };
+    }
+}

@@ -1,0 +1,14 @@
+spring:
+  application:
+    name: transaction-service
+  profiles:
+    active: dev
+  http:
+    converters:
+      preferred-json-mapper: jackson2
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info

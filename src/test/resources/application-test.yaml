@@ -1,0 +1,47 @@
+server:
+  port: 0
+
+spring:
+  datasource:
+    url: jdbc:h2:mem:transaction_test;MODE=PostgreSQL;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
+    username: sa
+    password:
+    driver-class-name: org.h2.Driver
+  sql:
+    init:
+      mode: always
+      schema-locations: classpath:schema-test.sql
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+    show-sql: false
+    properties:
+      hibernate:
+        default_schema: transaction_service
+  kafka:
+    consumer:
+      group-id: transaction-service-test
+      auto-offset-reset: earliest
+    producer:
+      acks: all
+  task:
+    scheduling:
+      enabled: false
+  cloud:
+    discovery:
+      enabled: false
+
+eureka:
+  client:
+    enabled: false
+    register-with-eureka: false
+    fetch-registry: false
+
+transaction:
+  worker:
+    delay-ms: 999999999
+
+logging:
+  level:
+    br.com.infnet.transactionService: INFO
+    org.apache.kafka: WARN
