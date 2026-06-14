@@ -1,7 +1,6 @@
 target/
 .m2/
 CONTEXTO_IA_CURSOR/
-!.mvn/wrapper/maven-wrapper.jar
 !**/src/main/**/target/
 !**/src/test/**/target/
 .kotlin

@@ -2,13 +2,14 @@
 FROM eclipse-temurin:25-jdk-jammy AS build
 WORKDIR /app
 
-COPY mvnw ./
-COPY .mvn .mvn/
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends maven \
+    && rm -rf /var/lib/apt/lists/*
+
 COPY pom.xml ./
 COPY src ./src/
 
-RUN chmod +x mvnw \
-    && ./mvnw -B -DskipTests package
+RUN mvn -B -DskipTests package
 
 FROM eclipse-temurin:25-jre-jammy
 WORKDIR /app
