@@ -2,7 +2,7 @@ package br.com.infnet.transactionService.integration;
 
 import br.com.infnet.transactionService.domain.Transaction;
 import br.com.infnet.transactionService.enums.TransactionStatus;
-import br.com.infnet.transactionService.events.outbound.TransactionStatusEvent;
+import br.com.infnet.transactionService.events.outbound.TransactionClosedEvent;
 import br.com.infnet.transactionService.repository.TransactionRepository;
 
 import java.util.UUID;
@@ -31,10 +31,16 @@ public final class FlowTestAssertions {
                 });
     }
 
-    public static void assertPunishmentPayload(TransactionStatusEvent event) {
+    public static void assertClosedEvent(
+            TransactionClosedEvent event,
+            TransactionStatus expectedStatus,
+            boolean expectedPenalty) {
+
+        assertThat(event.status()).isEqualTo(expectedStatus);
+        assertThat(event.penalty()).isEqualTo(expectedPenalty);
+        assertThat(event.reason()).isNotBlank();
         assertThat(event.sellerId()).isEqualTo(FlowTestFixtures.SELLER_ID);
         assertThat(event.highestBidderId()).isEqualTo(FlowTestFixtures.BUYER_ID);
-        assertThat(event.status()).isEqualTo(TransactionStatus.TRANSACTION_CLOSED_PAYMENT_FAILED);
     }
 
     public static void assertBuyerAndSeller(Transaction transaction) {

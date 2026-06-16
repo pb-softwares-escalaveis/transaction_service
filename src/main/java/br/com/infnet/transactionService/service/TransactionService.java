@@ -8,7 +8,9 @@ import br.com.infnet.transactionService.events.inbound.PaymentCreatedEvent;
 import br.com.infnet.transactionService.events.inbound.PaymentCreatedFailedEvent;
 import br.com.infnet.transactionService.events.inbound.PaymentExpiredEvent;
 import br.com.infnet.transactionService.events.inbound.PaymentReceivedEvent;
+import br.com.infnet.transactionService.enums.TransactionClosedReason;
 import br.com.infnet.transactionService.events.outbound.PaymentRequestedEvent;
+import br.com.infnet.transactionService.events.outbound.TransactionClosedEvent;
 import br.com.infnet.transactionService.events.outbound.TransactionStatusEvent;
 import br.com.infnet.transactionService.exception.TransactionNotFoundException;
 import br.com.infnet.transactionService.exception.UnauthorizedBuyerException;
@@ -62,7 +64,12 @@ public class TransactionService {
         historyService.recordTransition(transaction, oldStatus, newStatus, changedBy, reason, now);
 
         Transaction saved = transactionRepository.save(transaction);
-        publishStatusEvent(saved, newStatus, toInstant(now));
+        Instant occurredAt = toInstant(now);
+        if (newStatus.isFinal() && isClosedStatus(newStatus)) {
+            publishClosedEvent(saved, newStatus, occurredAt);
+        } else {
+            publishStatusEvent(saved, newStatus, occurredAt);
+        }
         return saved;
     }
 
@@ -272,6 +279,17 @@ public class TransactionService {
         return occurredAt != null ? occurredAt : Instant.now();
     }
 
+    private boolean isClosedStatus(TransactionStatus status) {
+        return switch (status) {
+            case TRANSACTION_CLOSED_DELIVERY_INACTIVE,
+                 TRANSACTION_CLOSED_PAYMENT_FAILED,
+                 TRANSACTION_CLOSED_PAYMENT_CREATED_FAILED,
+                 TRANSACTION_CLOSED_PAYMENT_TIMEOUT,
+                 TRANSACTION_CLOSED_TIMEOUT -> true;
+            default -> false;
+        };
+    }
+
     private void publishStatusEvent(Transaction transaction, TransactionStatus status, Instant occurredAt) {
         eventProducer.publishStatusEvent(new TransactionStatusEvent(
                 transaction.getCorrelationId(),
@@ -281,6 +299,20 @@ public class TransactionService {
                 transaction.getBuyerId(),
                 status,
                 occurredAt));
+    }
+
+    private void publishClosedEvent(Transaction transaction, TransactionStatus status, Instant occurredAt) {
+        TransactionClosedReason closedReason = TransactionClosedReason.fromStatus(status);
+        eventProducer.publishClosedEvent(new TransactionClosedEvent(
+                transaction.getCorrelationId(),
+                transaction.getId(),
+                transaction.getAuctionId(),
+                transaction.getSellerId(),
+                transaction.getBuyerId(),
+                status,
+                closedReason.message(),
+                occurredAt,
+                closedReason.penalty()));
     }
 
     private void publishPaymentRequested(Transaction transaction) {

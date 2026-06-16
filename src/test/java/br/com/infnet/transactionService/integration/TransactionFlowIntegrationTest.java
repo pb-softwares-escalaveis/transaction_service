@@ -8,6 +8,7 @@ import br.com.infnet.transactionService.events.inbound.PaymentCreatedEvent;
 import br.com.infnet.transactionService.events.inbound.PaymentCreatedFailedEvent;
 import br.com.infnet.transactionService.events.inbound.PaymentExpiredEvent;
 import br.com.infnet.transactionService.events.inbound.PaymentReceivedEvent;
+import br.com.infnet.transactionService.events.outbound.TransactionClosedEvent;
 import br.com.infnet.transactionService.events.outbound.TransactionStatusEvent;
 import br.com.infnet.transactionService.repository.TransactionHistoryRepository;
 import br.com.infnet.transactionService.repository.TransactionRepository;
@@ -42,9 +43,7 @@ import static br.com.infnet.transactionService.integration.FlowTestFixtures.TOPI
 import static br.com.infnet.transactionService.integration.FlowTestFixtures.TOPIC_PAYMENT_CREATED_FAILED;
 import static br.com.infnet.transactionService.integration.FlowTestFixtures.TOPIC_PAYMENT_EXPIRED;
 import static br.com.infnet.transactionService.integration.FlowTestFixtures.TOPIC_PAYMENT_RECEIVED;
-import static br.com.infnet.transactionService.integration.FlowTestFixtures.TOPIC_STATUS_CLOSED_DELIVERY_INACTIVE;
-import static br.com.infnet.transactionService.integration.FlowTestFixtures.TOPIC_STATUS_CLOSED_PAYMENT_CREATED_FAILED;
-import static br.com.infnet.transactionService.integration.FlowTestFixtures.TOPIC_STATUS_CLOSED_PAYMENT_FAILED;
+import static br.com.infnet.transactionService.integration.FlowTestFixtures.TOPIC_STATUS_CLOSED;
 import static br.com.infnet.transactionService.integration.FlowTestFixtures.TOPIC_STATUS_DELIVERY_PENDING;
 import static br.com.infnet.transactionService.integration.FlowTestFixtures.TOPIC_STATUS_FINISHED;
 import static br.com.infnet.transactionService.integration.FlowTestFixtures.TOPIC_STATUS_PAYMENT_PENDING;
@@ -69,13 +68,9 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
                 FlowTestFixtures.TOPIC_STATUS_CREATED,
                 FlowTestFixtures.TOPIC_STATUS_WAITING,
                 FlowTestFixtures.TOPIC_STATUS_PAYMENT_PENDING,
-                FlowTestFixtures.TOPIC_STATUS_CLOSED_PAYMENT_CREATED_FAILED,
                 FlowTestFixtures.TOPIC_STATUS_DELIVERY_PENDING,
                 FlowTestFixtures.TOPIC_STATUS_FINISHED,
-                FlowTestFixtures.TOPIC_STATUS_CLOSED_PAYMENT_FAILED,
-                FlowTestFixtures.TOPIC_STATUS_CLOSED_PAYMENT_TIMEOUT,
-                FlowTestFixtures.TOPIC_STATUS_CLOSED_DELIVERY_INACTIVE,
-                FlowTestFixtures.TOPIC_STATUS_CLOSED_TIMEOUT
+                FlowTestFixtures.TOPIC_STATUS_CLOSED
         })
 @Import(FlowTestKafkaProducers.class)
 class TransactionFlowIntegrationTest {
@@ -162,11 +157,9 @@ class TransactionFlowIntegrationTest {
 
         awaitStatusInDatabase(TRANSACTION_CLOSED_PAYMENT_CREATED_FAILED);
 
-        TransactionStatusEvent event =
-                assertOutboundStatus(TOPIC_STATUS_CLOSED_PAYMENT_CREATED_FAILED,
-                        TRANSACTION_CLOSED_PAYMENT_CREATED_FAILED);
-        assertThat(event.sellerId()).isEqualTo(FlowTestFixtures.SELLER_ID);
-        assertThat(event.highestBidderId()).isEqualTo(FlowTestFixtures.BUYER_ID);
+        TransactionClosedEvent event = assertOutboundClosed(
+                TRANSACTION_CLOSED_PAYMENT_CREATED_FAILED, false);
+        FlowTestAssertions.assertClosedEvent(event, TRANSACTION_CLOSED_PAYMENT_CREATED_FAILED, false);
 
         Transaction transaction = transactionRepository.findByCorrelationId(correlationId).orElseThrow();
         assertThat(transaction.getStatus().isFinal()).isTrue();
@@ -185,9 +178,8 @@ class TransactionFlowIntegrationTest {
         sendPaymentExpired(transactionId);
         awaitStatusInDatabase(TRANSACTION_CLOSED_PAYMENT_FAILED);
 
-        TransactionStatusEvent event =
-                assertOutboundStatus(TOPIC_STATUS_CLOSED_PAYMENT_FAILED, TRANSACTION_CLOSED_PAYMENT_FAILED);
-        FlowTestAssertions.assertPunishmentPayload(event);
+        TransactionClosedEvent event = assertOutboundClosed(TRANSACTION_CLOSED_PAYMENT_FAILED, true);
+        FlowTestAssertions.assertClosedEvent(event, TRANSACTION_CLOSED_PAYMENT_FAILED, true);
 
         Transaction transaction = transactionRepository.findByCorrelationId(correlationId).orElseThrow();
         assertThat(transaction.getStatus().isFinal()).isTrue();
@@ -213,7 +205,9 @@ class TransactionFlowIntegrationTest {
         transactionService.closeByDeliveryInactive();
 
         awaitStatusInDatabase(TRANSACTION_CLOSED_DELIVERY_INACTIVE);
-        assertOutboundStatus(TOPIC_STATUS_CLOSED_DELIVERY_INACTIVE, TRANSACTION_CLOSED_DELIVERY_INACTIVE);
+
+        TransactionClosedEvent event = assertOutboundClosed(TRANSACTION_CLOSED_DELIVERY_INACTIVE, false);
+        FlowTestAssertions.assertClosedEvent(event, TRANSACTION_CLOSED_DELIVERY_INACTIVE, false);
 
         Transaction closed = transactionRepository.findByCorrelationId(correlationId).orElseThrow();
         assertThat(closed.getStatus().isFinal()).isTrue();
@@ -273,6 +267,15 @@ class TransactionFlowIntegrationTest {
                         embeddedKafka, topic, correlationId, expectedStatus, Duration.ofSeconds(1)),
                 java.util.Objects::nonNull);
         assertThat(event.status()).isEqualTo(expectedStatus);
+        return event;
+    }
+
+    private TransactionClosedEvent assertOutboundClosed(TransactionStatus expectedStatus, boolean expectedPenalty) {
+        TransactionClosedEvent event = await().atMost(AWAIT_TIMEOUT).until(
+                () -> FlowTestOutboundCapture.awaitClosedEvent(
+                        embeddedKafka, TOPIC_STATUS_CLOSED, correlationId, expectedStatus, Duration.ofSeconds(1)),
+                java.util.Objects::nonNull);
+        FlowTestAssertions.assertClosedEvent(event, expectedStatus, expectedPenalty);
         return event;
     }
 }

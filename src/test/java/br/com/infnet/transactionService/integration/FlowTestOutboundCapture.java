@@ -1,6 +1,7 @@
 package br.com.infnet.transactionService.integration;
 
 import br.com.infnet.transactionService.enums.TransactionStatus;
+import br.com.infnet.transactionService.events.outbound.TransactionClosedEvent;
 import br.com.infnet.transactionService.events.outbound.TransactionStatusEvent;
 import org.apache.kafka.clients.consumer.Consumer;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
@@ -48,6 +49,45 @@ public final class FlowTestOutboundCapture {
                 var records = KafkaTestUtils.getRecords(consumer, Duration.ofMillis(500)).records(topic);
                 for (ConsumerRecord<String, TransactionStatusEvent> record : records) {
                     TransactionStatusEvent event = record.value();
+                    if (event != null
+                            && correlationId.equals(event.correlationId())
+                            && expectedStatus == event.status()) {
+                        return event;
+                    }
+                }
+            }
+        }
+        return null;
+    }
+
+    public static TransactionClosedEvent awaitClosedEvent(
+            EmbeddedKafkaBroker broker,
+            String topic,
+            UUID correlationId,
+            TransactionStatus expectedStatus,
+            Duration timeout) {
+
+        Map<String, Object> props = KafkaTestUtils.consumerProps(
+                "flow-outbound-closed-" + UUID.randomUUID(),
+                "earliest",
+                broker);
+
+        JacksonJsonDeserializer<TransactionClosedEvent> deserializer =
+                new JacksonJsonDeserializer<>(TransactionClosedEvent.class);
+        deserializer.addTrustedPackages("br.com.infnet.transactionService.events");
+        deserializer.setUseTypeHeaders(false);
+
+        try (Consumer<String, TransactionClosedEvent> consumer =
+                     new KafkaConsumer<>(props, new StringDeserializer(), deserializer)) {
+
+            consumer.subscribe(List.of(topic));
+            broker.consumeFromAnEmbeddedTopic(consumer, topic);
+
+            long deadline = System.currentTimeMillis() + timeout.toMillis();
+            while (System.currentTimeMillis() < deadline) {
+                var records = KafkaTestUtils.getRecords(consumer, Duration.ofMillis(500)).records(topic);
+                for (ConsumerRecord<String, TransactionClosedEvent> record : records) {
+                    TransactionClosedEvent event = record.value();
                     if (event != null
                             && correlationId.equals(event.correlationId())
                             && expectedStatus == event.status()) {

@@ -3,7 +3,7 @@ package br.com.infnet.transactionService.worker;
 import br.com.infnet.transactionService.domain.Transaction;
 import br.com.infnet.transactionService.enums.ChangedBy;
 import br.com.infnet.transactionService.enums.TransactionStatus;
-import br.com.infnet.transactionService.events.outbound.TransactionStatusEvent;
+import br.com.infnet.transactionService.events.outbound.TransactionClosedEvent;
 import br.com.infnet.transactionService.kafka.producer.TransactionEventProducer;
 import br.com.infnet.transactionService.repository.TransactionRepository;
 import br.com.infnet.transactionService.service.TransactionHistoryService;
@@ -91,7 +91,7 @@ class TransactionTimeoutWorkerTest {
 
         assertThat(waiting.getStatus()).isEqualTo(TRANSACTION_CLOSED_PAYMENT_TIMEOUT);
         assertThat(pending.getStatus()).isEqualTo(TRANSACTION_CLOSED_PAYMENT_TIMEOUT);
-        verify(eventProducer, org.mockito.Mockito.times(2)).publishStatusEvent(any(TransactionStatusEvent.class));
+        verify(eventProducer, org.mockito.Mockito.times(2)).publishClosedEvent(any(TransactionClosedEvent.class));
     }
 
     @Test
@@ -105,7 +105,7 @@ class TransactionTimeoutWorkerTest {
         transactionService.closeByDeliveryInactive();
 
         assertThat(deliveryPending.getStatus()).isEqualTo(TRANSACTION_CLOSED_DELIVERY_INACTIVE);
-        verify(eventProducer).publishStatusEvent(any(TransactionStatusEvent.class));
+        verify(eventProducer).publishClosedEvent(any(TransactionClosedEvent.class));
     }
 
     @Test
@@ -120,7 +120,7 @@ class TransactionTimeoutWorkerTest {
         transactionService.closeByGlobalTimeout();
 
         assertThat(stale.getStatus()).isEqualTo(TRANSACTION_CLOSED_TIMEOUT);
-        verify(eventProducer).publishStatusEvent(any(TransactionStatusEvent.class));
+        verify(eventProducer).publishClosedEvent(any(TransactionClosedEvent.class));
     }
 
     @Test

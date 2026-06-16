@@ -29,15 +29,9 @@ public final class FlowTestFixtures {
     public static final String TOPIC_STATUS_CREATED = "transactions.status.created";
     public static final String TOPIC_STATUS_WAITING = "transactions.status.waiting-for-payment";
     public static final String TOPIC_STATUS_PAYMENT_PENDING = "transactions.status.payment-pending";
-    public static final String TOPIC_STATUS_CLOSED_PAYMENT_CREATED_FAILED =
-            "transactions.status.closed.payment-created-failed";
     public static final String TOPIC_STATUS_DELIVERY_PENDING = "transactions.status.delivery-pending";
     public static final String TOPIC_STATUS_FINISHED = "transactions.status.finished";
-    public static final String TOPIC_STATUS_CLOSED_PAYMENT_FAILED = "transactions.status.closed.payment-failed";
-    public static final String TOPIC_STATUS_CLOSED_PAYMENT_TIMEOUT = "transactions.status.closed.payment-timeout";
-    public static final String TOPIC_STATUS_CLOSED_DELIVERY_INACTIVE =
-            "transactions.status.closed.delivery-inactive";
-    public static final String TOPIC_STATUS_CLOSED_TIMEOUT = "transactions.status.closed.timeout";
+    public static final String TOPIC_STATUS_CLOSED = "transactions.status.closed";
 
     public static final String[] ALL_TOPICS = {
             TOPIC_AUCTION,
@@ -49,13 +43,9 @@ public final class FlowTestFixtures {
             TOPIC_STATUS_CREATED,
             TOPIC_STATUS_WAITING,
             TOPIC_STATUS_PAYMENT_PENDING,
-            TOPIC_STATUS_CLOSED_PAYMENT_CREATED_FAILED,
             TOPIC_STATUS_DELIVERY_PENDING,
             TOPIC_STATUS_FINISHED,
-            TOPIC_STATUS_CLOSED_PAYMENT_FAILED,
-            TOPIC_STATUS_CLOSED_PAYMENT_TIMEOUT,
-            TOPIC_STATUS_CLOSED_DELIVERY_INACTIVE,
-            TOPIC_STATUS_CLOSED_TIMEOUT
+            TOPIC_STATUS_CLOSED
     };
 
     private FlowTestFixtures() {

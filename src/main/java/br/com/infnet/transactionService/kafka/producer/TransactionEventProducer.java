@@ -2,6 +2,7 @@ package br.com.infnet.transactionService.kafka.producer;
 
 import br.com.infnet.transactionService.enums.TransactionStatus;
 import br.com.infnet.transactionService.events.outbound.PaymentRequestedEvent;
+import br.com.infnet.transactionService.events.outbound.TransactionClosedEvent;
 import br.com.infnet.transactionService.events.outbound.TransactionStatusEvent;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -14,9 +15,11 @@ import org.springframework.stereotype.Component;
 public class TransactionEventProducer {
 
     private static final String PAYMENT_REQUESTED_TOPIC = "transactions.payment.requested";
+    private static final String TRANSACTION_CLOSED_TOPIC = "transactions.status.closed";
 
     private final KafkaTemplate<String, PaymentRequestedEvent> paymentRequestedKafkaTemplate;
     private final KafkaTemplate<String, TransactionStatusEvent> transactionStatusKafkaTemplate;
+    private final KafkaTemplate<String, TransactionClosedEvent> transactionClosedKafkaTemplate;
 
     public void publishPaymentRequested(PaymentRequestedEvent event) {
         String key = event.correlationId().toString();
@@ -33,18 +36,21 @@ public class TransactionEventProducer {
                 event.status(), topic, event.correlationId(), event.transactionId());
     }
 
+    public void publishClosedEvent(TransactionClosedEvent event) {
+        String key = event.correlationId().toString();
+        transactionClosedKafkaTemplate.send(TRANSACTION_CLOSED_TOPIC, key, event);
+        log.info("Publicado {} no tópico {}: correlationId={}, transactionId={}",
+                event.status(), TRANSACTION_CLOSED_TOPIC, event.correlationId(), event.transactionId());
+    }
+
     private String resolveTopic(TransactionStatus status) {
         return switch (status) {
             case TRANSACTION_CREATED -> "transactions.status.created";
             case TRANSACTION_WAITING_FOR_PAYMENT -> "transactions.status.waiting-for-payment";
             case TRANSACTION_PAYMENT_PENDING -> "transactions.status.payment-pending";
-            case TRANSACTION_CLOSED_PAYMENT_CREATED_FAILED -> "transactions.status.closed.payment-created-failed";
             case DELIVERY_PENDING -> "transactions.status.delivery-pending";
             case TRANSACTION_FINISHED -> "transactions.status.finished";
-            case TRANSACTION_CLOSED_PAYMENT_FAILED -> "transactions.status.closed.payment-failed";
-            case TRANSACTION_CLOSED_PAYMENT_TIMEOUT -> "transactions.status.closed.payment-timeout";
-            case TRANSACTION_CLOSED_DELIVERY_INACTIVE -> "transactions.status.closed.delivery-inactive";
-            case TRANSACTION_CLOSED_TIMEOUT -> "transactions.status.closed.timeout";
+            default -> throw new IllegalArgumentException("Status não possui tópico de status: " + status);
         };
     }
 }

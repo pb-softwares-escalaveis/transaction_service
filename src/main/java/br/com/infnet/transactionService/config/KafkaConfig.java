@@ -6,6 +6,7 @@ import br.com.infnet.transactionService.events.inbound.PaymentCreatedFailedEvent
 import br.com.infnet.transactionService.events.inbound.PaymentExpiredEvent;
 import br.com.infnet.transactionService.events.inbound.PaymentReceivedEvent;
 import br.com.infnet.transactionService.events.outbound.PaymentRequestedEvent;
+import br.com.infnet.transactionService.events.outbound.TransactionClosedEvent;
 import br.com.infnet.transactionService.events.outbound.TransactionStatusEvent;
 import org.apache.kafka.common.serialization.StringDeserializer;
 import org.apache.kafka.common.serialization.StringSerializer;
@@ -114,6 +115,18 @@ public class KafkaConfig {
     @Bean
     public KafkaTemplate<String, TransactionStatusEvent> transactionStatusKafkaTemplate(
             ProducerFactory<String, TransactionStatusEvent> producerFactory) {
+        return new KafkaTemplate<>(producerFactory);
+    }
+
+    @Bean
+    public ProducerFactory<String, TransactionClosedEvent> transactionClosedProducerFactory(
+            KafkaProperties kafkaProperties) {
+        return createProducerFactory(kafkaProperties, TransactionClosedEvent.class);
+    }
+
+    @Bean
+    public KafkaTemplate<String, TransactionClosedEvent> transactionClosedKafkaTemplate(
+            ProducerFactory<String, TransactionClosedEvent> producerFactory) {
         return new KafkaTemplate<>(producerFactory);
     }
 

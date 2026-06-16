@@ -66,7 +66,7 @@ docker compose down
 Via Docker (`eclipse-temurin:25-jdk-jammy` + Maven):
 
 ```bash
-# Suíte completa (48 testes)
+# Suíte completa (56 testes)
 docker run --rm -v "$(pwd)":/app -w /app eclipse-temurin:25-jdk-jammy \
   bash -c "apt-get update -qq && apt-get install -y -qq maven && mvn -q test"
 
@@ -82,6 +82,7 @@ docker run --rm -v "$(pwd)":/app -w /app eclipse-temurin:25-jdk-jammy \
 | `TransactionTimeoutWorkerTest` | Timeouts 24h, 7d, 11d |
 | `AuctionEndedWithWinnerConsumerTest` | Consumer + idempotência |
 | `TransactionFlowIntegrationTest` | E2E: happy path, falhas, timeout 7d |
+| `TransactionClosedReasonTest` | Mapeamento status → reason → penalty |
 
 Profile de teste: `application-test.yaml` (H2 + EmbeddedKafka).
 
@@ -134,7 +135,7 @@ Em produção, JWT é validado no API Gateway; o serviço recebe apenas `X-User-
 | `PaymentReceived` | `payments.payment.received` |
 | `PaymentExpired` | `payments.payment.expired` |
 
-### Produzidos (11)
+### Produzidos (7)
 
 | Evento | Tópico |
 |--------|--------|
@@ -142,15 +143,13 @@ Em produção, JWT é validado no API Gateway; o serviço recebe apenas `X-User-
 | `TransactionCreated` | `transactions.status.created` |
 | `TransactionWaitingForPayment` | `transactions.status.waiting-for-payment` |
 | `TransactionPaymentPending` | `transactions.status.payment-pending` |
-| `TransactionClosedPaymentCreatedFailed` | `transactions.status.closed.payment-created-failed` |
 | `TransactionDeliveryPending` | `transactions.status.delivery-pending` |
 | `TransactionFinished` | `transactions.status.finished` |
-| `TransactionClosedPaymentFailed` | `transactions.status.closed.payment-failed` |
-| `TransactionClosedPaymentTimeOut` | `transactions.status.closed.payment-timeout` |
-| `TransactionClosedDeliveryInactive` | `transactions.status.closed.delivery-inactive` |
-| `TransactionClosedTimeout` | `transactions.status.closed.timeout` |
+| `TransactionClosed` | `transactions.status.closed` |
 
-Os 10 eventos de status compartilham schema (`correlationId`, `transactionId`, `auctionId`, `sellerId`, `highestBidderId`, `status`, `occurredAt`).
+Os 5 eventos de status não-closed compartilham schema `TransactionStatusEvent` (`correlationId`, `transactionId`, `auctionId`, `sellerId`, `highestBidderId`, `status`, `occurredAt`).
+
+Os 5 encerramentos (`TRANSACTION_CLOSED_*`) publicam no tópico único `transactions.status.closed` como `TransactionClosedEvent`, com os mesmos campos acima mais `reason` (mensagem em PT) e `penalty` (`true` **somente** para `TRANSACTION_CLOSED_PAYMENT_FAILED`).
 
 ---
 
