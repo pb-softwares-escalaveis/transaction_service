@@ -2,7 +2,7 @@
 
 Microserviço de **transações pós-leilão** do projeto **Leiloeiro Online**.
 
-Orquestra o ciclo pós-leilão: cria transação, solicita pagamento, reage a eventos Kafka, expõe confirmação de entrega e executa timeouts (24h, 7d, 11d).
+Orquestra o ciclo pós-leilão: cria transação, solicita pagamento, reage a eventos Kafka, expõe consulta de status e confirmação de entrega, e executa timeouts (24h, 7d, 11d).
 
 **Stack:** Java 25 · Spring Boot 4.0.6 · Spring Cloud 2025.1.1 · PostgreSQL 17 · Kafka 4.1.0 · Docker Compose
 
@@ -53,7 +53,13 @@ docker compose down
    docker exec transaction-postgres psql -U postgres -d postgres \
      -c "SELECT id, status FROM transaction_service.transactions;"
    ```
-6. Confirmar entrega:
+6. Consultar status (comprador ou vendedor — o front pode chamar em polling):
+   ```bash
+   curl http://localhost:9082/transactions/1 \
+     -H "X-User-Id: bbbbbbbb-cccc-dddd-eeee-222222222222"
+   # → {"id":1,"status":"DELIVERY_PENDING"}
+   ```
+7. Confirmar entrega (somente comprador, com transação em `DELIVERY_PENDING`):
    ```bash
    curl -X POST http://localhost:9082/transactions/1/confirm-delivery \
      -H "X-User-Id: bbbbbbbb-cccc-dddd-eeee-222222222222"
@@ -66,7 +72,7 @@ docker compose down
 Via Docker (`eclipse-temurin:25-jdk-jammy` + Maven):
 
 ```bash
-# Suíte completa (56 testes)
+# Suíte completa (61 testes)
 docker run --rm -v "$(pwd)":/app -w /app eclipse-temurin:25-jdk-jammy \
   bash -c "apt-get update -qq && apt-get install -y -qq maven && mvn -q test"
 
@@ -78,7 +84,7 @@ docker run --rm -v "$(pwd)":/app -w /app eclipse-temurin:25-jdk-jammy \
 | Classe | Cobertura |
 |--------|-----------|
 | `TransactionStateMachineTest` | Transições, `expires_at`, estados finais |
-| `TransactionControllerTest` | 401, 403, 404, 409, 204 |
+| `TransactionControllerTest` | GET status + confirm-delivery: 401, 403, 404, 409, 200, 204 |
 | `TransactionTimeoutWorkerTest` | Timeouts 24h, 7d, 11d |
 | `AuctionEndedWithWinnerConsumerTest` | Consumer + idempotência |
 | `TransactionFlowIntegrationTest` | E2E: happy path, falhas, timeout 7d |
@@ -105,6 +111,26 @@ Profile de teste: `application-test.yaml` (H2 + EmbeddedKafka).
 ---
 
 ## API REST
+
+### Consultar status
+
+```http
+GET /transactions/{id}
+X-User-Id: {uuid-do-comprador-ou-vendedor}
+```
+
+Retorna o **status atual** da transação (`id` + `status`). O front usa esse endpoint para acompanhar o ciclo pós-leilão em tempo quase real (polling): aguardando pagamento, pagamento pendente, entrega, finalizado ou encerrado.
+
+| Código | Situação |
+|--------|----------|
+| 200 | `{"id": 1, "status": "DELIVERY_PENDING"}` — qualquer status válido do domínio |
+| 401 | `X-User-Id` ausente |
+| 403 | Usuário não é comprador nem vendedor da transação |
+| 404 | Transação não encontrada |
+
+Comprador **e** vendedor podem consultar. Não altera estado — apenas leitura do que já está no banco (atualizado via Kafka e workers).
+
+### Confirmar entrega
 
 ```http
 POST /transactions/{id}/confirm-delivery
@@ -175,7 +201,7 @@ Os 5 encerramentos (`TRANSACTION_CLOSED_*`) publicam no tópico único `transact
 ```
 src/main/java/br/com/infnet/transactionService/
 ├── config/       # Kafka, ObjectMapper, Scheduling
-├── controller/   # REST (confirm-delivery)
+├── controller/   # REST (GET status, confirm-delivery)
 ├── domain/       # Transaction, TransactionHistory
 ├── kafka/        # 5 consumers + producer
 ├── service/      # TransactionService, StateMachine, History
