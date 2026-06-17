@@ -21,7 +21,7 @@ public final class FlowTestFixtures {
 
     public static final String TOPIC_AUCTION = "auctions.lot.ended-with-winner";
     public static final String TOPIC_PAYMENT_CREATED = "payments.payment.created";
-    public static final String TOPIC_PAYMENT_CREATED_FAILED = "payments.payment.created.failed";
+    public static final String TOPIC_PAYMENT_CREATED_FAILED = "payments.payment.created-failed";
     public static final String TOPIC_PAYMENT_RECEIVED = "payments.payment.received";
     public static final String TOPIC_PAYMENT_EXPIRED = "payments.payment.expired";
 

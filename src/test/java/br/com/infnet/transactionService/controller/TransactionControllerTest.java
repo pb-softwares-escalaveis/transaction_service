@@ -1,8 +1,10 @@
 package br.com.infnet.transactionService.controller;
 
+import br.com.infnet.transactionService.dto.TransactionStatusResponse;
 import br.com.infnet.transactionService.exception.InvalidStateTransitionException;
 import br.com.infnet.transactionService.exception.TransactionNotFoundException;
 import br.com.infnet.transactionService.exception.UnauthorizedBuyerException;
+import br.com.infnet.transactionService.exception.UnauthorizedTransactionAccessException;
 import br.com.infnet.transactionService.handler.GlobalExceptionHandler;
 import br.com.infnet.transactionService.service.TransactionService;
 import org.junit.jupiter.api.Test;
@@ -15,11 +17,14 @@ import org.springframework.test.web.servlet.MockMvc;
 
 import java.util.UUID;
 
+import static br.com.infnet.transactionService.enums.TransactionStatus.DELIVERY_PENDING;
 import static br.com.infnet.transactionService.enums.TransactionStatus.TRANSACTION_PAYMENT_PENDING;
 import static br.com.infnet.transactionService.enums.TransactionStatus.TRANSACTION_FINISHED;
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -30,6 +35,7 @@ class TransactionControllerTest {
 
     private static final Long TRANSACTION_ID = 42L;
     private static final UUID BUYER_ID = UUID.fromString("aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee");
+    private static final UUID SELLER_ID = UUID.fromString("bbbbbbbb-cccc-dddd-eeee-ffffffffffff");
     private static final UUID OTHER_USER_ID = UUID.fromString("11111111-2222-3333-4444-555555555555");
 
     @Autowired
@@ -101,5 +107,64 @@ class TransactionControllerTest {
                 .andExpect(status().isNoContent());
 
         verify(transactionService).confirmDelivery(TRANSACTION_ID, BUYER_ID);
+    }
+
+    @Test
+    void shouldReturn401WhenUserIdHeaderIsMissingOnGetStatus() throws Exception {
+        mockMvc.perform(get("/transactions/{id}", TRANSACTION_ID))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.codigo").value("MISSING_USER_ID"));
+    }
+
+    @Test
+    void shouldReturn403WhenUserIsNotParticipantOnGetStatus() throws Exception {
+        doThrow(new UnauthorizedTransactionAccessException())
+                .when(transactionService)
+                .getStatus(TRANSACTION_ID, OTHER_USER_ID);
+
+        mockMvc.perform(get("/transactions/{id}", TRANSACTION_ID)
+                        .header(TransactionController.USER_ID_HEADER, OTHER_USER_ID))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.codigo").value("UNAUTHORIZED_TRANSACTION_ACCESS"));
+    }
+
+    @Test
+    void shouldReturn404WhenTransactionDoesNotExistOnGetStatus() throws Exception {
+        doThrow(new TransactionNotFoundException(TRANSACTION_ID))
+                .when(transactionService)
+                .getStatus(TRANSACTION_ID, BUYER_ID);
+
+        mockMvc.perform(get("/transactions/{id}", TRANSACTION_ID)
+                        .header(TransactionController.USER_ID_HEADER, BUYER_ID))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.codigo").value("TRANSACTION_NOT_FOUND"));
+    }
+
+    @Test
+    void shouldReturn200WithStatusWhenBuyerRequestsStatus() throws Exception {
+        when(transactionService.getStatus(TRANSACTION_ID, BUYER_ID))
+                .thenReturn(new TransactionStatusResponse(TRANSACTION_ID, DELIVERY_PENDING));
+
+        mockMvc.perform(get("/transactions/{id}", TRANSACTION_ID)
+                        .header(TransactionController.USER_ID_HEADER, BUYER_ID))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(TRANSACTION_ID))
+                .andExpect(jsonPath("$.status").value("DELIVERY_PENDING"));
+
+        verify(transactionService).getStatus(TRANSACTION_ID, BUYER_ID);
+    }
+
+    @Test
+    void shouldReturn200WithStatusWhenSellerRequestsStatus() throws Exception {
+        when(transactionService.getStatus(TRANSACTION_ID, SELLER_ID))
+                .thenReturn(new TransactionStatusResponse(TRANSACTION_ID, DELIVERY_PENDING));
+
+        mockMvc.perform(get("/transactions/{id}", TRANSACTION_ID)
+                        .header(TransactionController.USER_ID_HEADER, SELLER_ID))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(TRANSACTION_ID))
+                .andExpect(jsonPath("$.status").value("DELIVERY_PENDING"));
+
+        verify(transactionService).getStatus(TRANSACTION_ID, SELLER_ID);
     }
 }

@@ -5,6 +5,7 @@ import br.com.infnet.transactionService.exception.InvalidStateTransitionExceptio
 import br.com.infnet.transactionService.exception.MissingUserIdHeaderException;
 import br.com.infnet.transactionService.exception.TransactionNotFoundException;
 import br.com.infnet.transactionService.exception.UnauthorizedBuyerException;
+import br.com.infnet.transactionService.exception.UnauthorizedTransactionAccessException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -25,6 +26,13 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ErrorResponse> handleUnauthorizedBuyer(UnauthorizedBuyerException ex) {
         return ResponseEntity.status(HttpStatus.FORBIDDEN)
                 .body(new ErrorResponse("UNAUTHORIZED_BUYER", ex.getMessage()));
+    }
+
+    @ExceptionHandler(UnauthorizedTransactionAccessException.class)
+    public ResponseEntity<ErrorResponse> handleUnauthorizedTransactionAccess(
+            UnauthorizedTransactionAccessException ex) {
+        return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                .body(new ErrorResponse("UNAUTHORIZED_TRANSACTION_ACCESS", ex.getMessage()));
     }
 
     @ExceptionHandler(TransactionNotFoundException.class)

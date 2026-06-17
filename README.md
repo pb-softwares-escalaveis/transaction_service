@@ -131,7 +131,7 @@ Em produção, JWT é validado no API Gateway; o serviço recebe apenas `X-User-
 |--------|--------|
 | `AuctionEndedWithWinner` | `auctions.lot.ended-with-winner` |
 | `PaymentCreated` | `payments.payment.created` |
-| `PaymentCreatedFailed` | `payments.payment.created.failed` |
+| `PaymentCreatedFailed` | `payments.payment.created-failed` |
 | `PaymentReceived` | `payments.payment.received` |
 | `PaymentExpired` | `payments.payment.expired` |
 

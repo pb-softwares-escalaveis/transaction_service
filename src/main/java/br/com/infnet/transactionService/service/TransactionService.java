@@ -12,8 +12,10 @@ import br.com.infnet.transactionService.enums.TransactionClosedReason;
 import br.com.infnet.transactionService.events.outbound.PaymentRequestedEvent;
 import br.com.infnet.transactionService.events.outbound.TransactionClosedEvent;
 import br.com.infnet.transactionService.events.outbound.TransactionStatusEvent;
+import br.com.infnet.transactionService.dto.TransactionStatusResponse;
 import br.com.infnet.transactionService.exception.TransactionNotFoundException;
 import br.com.infnet.transactionService.exception.UnauthorizedBuyerException;
+import br.com.infnet.transactionService.exception.UnauthorizedTransactionAccessException;
 import br.com.infnet.transactionService.kafka.producer.TransactionEventProducer;
 import br.com.infnet.transactionService.repository.TransactionRepository;
 import lombok.RequiredArgsConstructor;
@@ -163,6 +165,13 @@ public class TransactionService {
         transition(transaction, TRANSACTION_FINISHED, ChangedBy.USER, "Entrega confirmada pelo comprador");
     }
 
+    @Transactional(readOnly = true)
+    public TransactionStatusResponse getStatus(Long transactionId, UUID userId) {
+        Transaction transaction = findTransactionOrThrow(transactionId);
+        assertParticipant(transaction, userId);
+        return new TransactionStatusResponse(transaction.getId(), transaction.getStatus());
+    }
+
     @Transactional
     public void handlePaymentExpired(PaymentExpiredEvent event) {
         Transaction transaction = findTransactionOrThrow(event.transactionId());
@@ -224,6 +233,12 @@ public class TransactionService {
     private Transaction findTransactionOrThrow(Long transactionId) {
         return transactionRepository.findById(transactionId)
                 .orElseThrow(() -> new TransactionNotFoundException(transactionId));
+    }
+
+    private void assertParticipant(Transaction transaction, UUID userId) {
+        if (!transaction.getBuyerId().equals(userId) && !transaction.getSellerId().equals(userId)) {
+            throw new UnauthorizedTransactionAccessException();
+        }
     }
 
     private boolean isAlreadyProcessed(
