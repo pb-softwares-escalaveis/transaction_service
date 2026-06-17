@@ -16,7 +16,7 @@ public class PaymentCreatedFailedConsumer {
     private final TransactionService transactionService;
 
     @KafkaListener(
-            topics = "payments.payment.created.failed",
+            topics = "payments.payment.created-failed",
             groupId = "transaction-service",
             containerFactory = "paymentCreatedFailedKafkaListenerContainerFactory")
     public void consume(PaymentCreatedFailedEvent event) {
