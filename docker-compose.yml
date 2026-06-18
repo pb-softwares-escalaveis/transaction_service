@@ -4,15 +4,17 @@ services:
     container_name: transaction-postgres
     environment:
       POSTGRES_DB: postgres
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
+      POSTGRES_USER: ${TRANSACTION_SERVICE_DB_USER}
+      POSTGRES_PASSWORD: ${TRANSACTION_SERVICE_DB_PASSWORD}
     ports:
-      - "5432:5432"
+      - "${TRANSACTION_SERVICE_DB_PORT}:5432"
     volumes:
       - ./db/init:/docker-entrypoint-initdb.d
       - transaction-postgres-data:/var/lib/postgresql/data
+    networks:
+      - leilao-network
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres -d postgres"]
+      test: ["CMD-SHELL", "pg_isready -U ${TRANSACTION_SERVICE_DB_USER} -d postgres"]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -42,6 +44,8 @@ services:
       KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
     volumes:
       - transaction-kafka-data:/var/lib/kafka/data
+    networks:
+      - leilao-network
     healthcheck:
       test: ["CMD-SHELL", "/opt/kafka/bin/kafka-topics.sh --bootstrap-server localhost:9092 --list >/dev/null 2>&1"]
       interval: 10s
@@ -59,9 +63,11 @@ services:
     environment:
       KAFKA_CLUSTERS_0_NAME: transaction-local
       KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:29092
+    networks:
+      - leilao-network
 
   transaction-service:
-    build: .
+    image: nelsongrossoni/transaction_service:latest
     container_name: transaction-app
     depends_on:
       postgres:
@@ -69,15 +75,22 @@ services:
       kafka:
         condition: service_healthy
     environment:
-      SPRING_PROFILES_ACTIVE: prod
-      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/postgres?currentSchema=transaction_service
-      SPRING_DATASOURCE_USERNAME: postgres
-      SPRING_DATASOURCE_PASSWORD: postgres
-      KAFKA_BOOTSTRAP_SERVERS: kafka:29092
-      EUREKA_CLIENT_REGISTER_WITH_EUREKA: "false"
-      EUREKA_CLIENT_FETCH_REGISTRY: "false"
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE}
+      SPRING_DATASOURCE_URL: ${SPRING_DATASOURCE_URL}
+      SPRING_DATASOURCE_USERNAME: ${SPRING_DATASOURCE_USERNAME}
+      SPRING_DATASOURCE_PASSWORD: ${SPRING_DATASOURCE_PASSWORD}
+      KAFKA_BOOTSTRAP_SERVERS: ${KAFKA_SERVERS}
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: ${EUREKA_SERVER_URL}
+      EUREKA_CLIENT_REGISTER_WITH_EUREKA: ${EUREKA_CLIENT_REGISTER_WITH_EUREKA}
+      EUREKA_CLIENT_FETCH_REGISTRY: ${EUREKA_CLIENT_FETCH_REGISTRY}
     ports:
-      - "9082:8080"
+      - "${TRANSACTION_SERVICE_PORT}:8080"
+    networks:
+      - leilao-network
+
+networks:
+  leilao-network:
+    external: true
 
 volumes:
   transaction-postgres-data:
