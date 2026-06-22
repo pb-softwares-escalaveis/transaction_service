@@ -5,10 +5,12 @@ import br.com.infnet.transactionService.enums.ChangedBy;
 import br.com.infnet.transactionService.enums.TransactionStatus;
 import br.com.infnet.transactionService.events.outbound.TransactionClosedEvent;
 import br.com.infnet.transactionService.kafka.producer.TransactionEventProducer;
+import br.com.infnet.transactionService.metrics.TransactionMetrics;
 import br.com.infnet.transactionService.repository.TransactionRepository;
 import br.com.infnet.transactionService.service.TransactionHistoryService;
 import br.com.infnet.transactionService.service.TransactionService;
 import br.com.infnet.transactionService.service.TransactionStateMachine;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -51,16 +53,19 @@ class TransactionTimeoutWorkerTest {
     @Mock
     private TransactionEventProducer eventProducer;
 
+    private TransactionMetrics transactionMetrics;
     private TransactionService transactionService;
     private TransactionTimeoutWorker worker;
 
     @BeforeEach
     void setUp() {
+        transactionMetrics = new TransactionMetrics(new SimpleMeterRegistry());
         transactionService = new TransactionService(
                 transactionRepository,
                 new TransactionStateMachine(),
                 historyService,
-                eventProducer);
+                eventProducer,
+                transactionMetrics);
         worker = new TransactionTimeoutWorker(transactionService);
     }
 

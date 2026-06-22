@@ -6,6 +6,7 @@ import br.com.infnet.transactionService.exception.TransactionNotFoundException;
 import br.com.infnet.transactionService.exception.UnauthorizedBuyerException;
 import br.com.infnet.transactionService.exception.UnauthorizedTransactionAccessException;
 import br.com.infnet.transactionService.handler.GlobalExceptionHandler;
+import br.com.infnet.transactionService.metrics.TransactionMetrics;
 import br.com.infnet.transactionService.service.TransactionService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -43,6 +44,9 @@ class TransactionControllerTest {
 
     @MockitoBean
     private TransactionService transactionService;
+
+    @MockitoBean
+    private TransactionMetrics transactionMetrics;
 
     @Test
     void shouldReturn401WhenUserIdHeaderIsMissing() throws Exception {

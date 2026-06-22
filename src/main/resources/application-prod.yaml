@@ -24,3 +24,50 @@ eureka:
       defaultZone: ${EUREKA_CLIENT_SERVICEURL_DEFAULTZONE:http://eureka:8761/eureka/}
     register-with-eureka: true
     fetch-registry: true
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: "health,info,prometheus,metrics"
+      base-path: /actuator
+
+  endpoint:
+    health:
+      show-details: always
+
+  metrics:
+    tags:
+      application: transaction-service
+
+  health:
+    db:
+      enabled: true
+
+  tracing:
+    sampling:
+      probability: 1.0
+    propagation:
+      type: w3c
+
+  otlp:
+    metrics:
+      export:
+        enabled: true
+
+  prometheus:
+    metrics:
+      export:
+        enabled: true
+
+  opentelemetry:
+    resource-attributes:
+      service.name: ${spring.application.name}
+      service.namespace: leiloeiroonline
+      deployment.environment: prod
+
+    tracing:
+      export:
+        otlp:
+          endpoint: http://localhost:4318/v1/traces
+          protocol: http/protobuf

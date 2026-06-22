@@ -1,0 +1,58 @@
+<configuration>
+
+    <springProperty
+            scope="context"
+            name="APP_NAME"
+            source="spring.application.name"
+            defaultValue="unknown-service"
+    />
+
+    <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder>
+            <pattern>
+                %d{yyyy-MM-dd HH:mm:ss} %-5level [%thread] [${APP_NAME},%X{traceId:-},%X{spanId:-},%X{correlationId:-}]
+                %logger{36} - %msg%n
+            </pattern>
+        </encoder>
+    </appender>
+
+    <appender name="LOGSTASH" class="net.logstash.logback.appender.LogstashTcpSocketAppender">
+        <destination>localhost:5000</destination>
+
+        <encoder class="net.logstash.logback.encoder.LogstashEncoder">
+            <customFields>{"service":"${APP_NAME}"}</customFields>
+        </encoder>
+    </appender>
+
+    <springProfile name="test">
+        <logger name="org.apache.kafka" level="WARN"/>
+        <logger name="org.springframework.kafka" level="WARN"/>
+
+        <root level="INFO">
+            <appender-ref ref="CONSOLE"/>
+        </root>
+    </springProfile>
+
+    <springProfile name="dev">
+        <logger name="org.apache.kafka" level="WARN"/>
+        <logger name="org.springframework.kafka" level="WARN"/>
+        <logger name="org.apache.kafka.clients.producer.ProducerConfig" level="ERROR"/>
+        <logger name="org.apache.kafka.common.utils.AppInfoParser" level="ERROR"/>
+
+        <root level="DEBUG">
+            <appender-ref ref="CONSOLE"/>
+            <appender-ref ref="LOGSTASH"/>
+        </root>
+    </springProfile>
+
+    <springProfile name="prod">
+        <logger name="org.apache.kafka" level="ERROR"/>
+        <logger name="org.springframework.kafka" level="ERROR"/>
+
+        <root level="INFO">
+            <appender-ref ref="CONSOLE"/>
+            <appender-ref ref="LOGSTASH"/>
+        </root>
+    </springProfile>
+
+</configuration>

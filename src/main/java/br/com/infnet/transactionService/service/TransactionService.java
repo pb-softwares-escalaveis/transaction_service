@@ -17,6 +17,7 @@ import br.com.infnet.transactionService.exception.TransactionNotFoundException;
 import br.com.infnet.transactionService.exception.UnauthorizedBuyerException;
 import br.com.infnet.transactionService.exception.UnauthorizedTransactionAccessException;
 import br.com.infnet.transactionService.kafka.producer.TransactionEventProducer;
+import br.com.infnet.transactionService.metrics.TransactionMetrics;
 import br.com.infnet.transactionService.repository.TransactionRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -51,6 +52,7 @@ public class TransactionService {
     private final TransactionStateMachine stateMachine;
     private final TransactionHistoryService historyService;
     private final TransactionEventProducer eventProducer;
+    private final TransactionMetrics transactionMetrics;
 
     @Transactional
     public Transaction transition(
@@ -62,8 +64,10 @@ public class TransactionService {
         LocalDateTime now = LocalDateTime.now();
         TransactionStatus oldStatus = transaction.getStatus();
 
-        stateMachine.applyTransition(transaction, newStatus, now);
-        historyService.recordTransition(transaction, oldStatus, newStatus, changedBy, reason, now);
+        transactionMetrics.recordTransition(() -> {
+            stateMachine.applyTransition(transaction, newStatus, now);
+            historyService.recordTransition(transaction, oldStatus, newStatus, changedBy, reason, now);
+        });
 
         Transaction saved = transactionRepository.save(transaction);
         Instant occurredAt = toInstant(now);
@@ -72,6 +76,10 @@ public class TransactionService {
         } else {
             publishStatusEvent(saved, newStatus, occurredAt);
         }
+
+        transactionMetrics.incrementStatusTransition(oldStatus.name(), newStatus.name());
+        log.info("Transição de status: transactionId={}, {} → {}, correlationId={}",
+                saved.getId(), oldStatus, newStatus, saved.getCorrelationId());
         return saved;
     }
 
@@ -194,6 +202,7 @@ public class TransactionService {
 
         for (Transaction transaction : expired) {
             transition(transaction, TRANSACTION_CLOSED_PAYMENT_TIMEOUT, ChangedBy.SYSTEM, null);
+            transactionMetrics.incrementTimeoutClosed("payment_timeout");
         }
 
         if (!expired.isEmpty()) {
@@ -209,6 +218,7 @@ public class TransactionService {
 
         for (Transaction transaction : expired) {
             transition(transaction, TRANSACTION_CLOSED_DELIVERY_INACTIVE, ChangedBy.SYSTEM, null);
+            transactionMetrics.incrementTimeoutClosed("delivery_inactive");
         }
 
         if (!expired.isEmpty()) {
@@ -223,6 +233,7 @@ public class TransactionService {
 
         for (Transaction transaction : stale) {
             transition(transaction, TRANSACTION_CLOSED_TIMEOUT, ChangedBy.SYSTEM, null);
+            transactionMetrics.incrementTimeoutClosed("global");
         }
 
         if (!stale.isEmpty()) {
