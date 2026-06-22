@@ -30,6 +30,7 @@ O schema SQL é aplicado automaticamente via `./db/init/01_transaction_schema.sq
 docker compose ps
 curl http://localhost:9082/actuator/health
 # {"status":"UP","groups":["liveness","readiness"]}
+curl http://localhost:9082/actuator/prometheus   # métricas (profile prod)
 ```
 
 ### Parar tudo
@@ -204,6 +205,7 @@ src/main/java/br/com/infnet/transactionService/
 ├── controller/   # REST (GET status, confirm-delivery)
 ├── domain/       # Transaction, TransactionHistory
 ├── kafka/        # 5 consumers + producer
+├── metrics/    # Métricas Micrometer (consumers, transições, REST)
 ├── service/      # TransactionService, StateMachine, History
 └── worker/       # TransactionTimeoutWorker
 src/test/java/.../integration/   # Testes E2E
@@ -214,24 +216,4 @@ db/init/          # Schema PostgreSQL
 
 ## Observabilidade
 
-Logs estruturados via SLF4J + `logback-spring.xml` (CONSOLE + LOGSTASH), com `correlationId` no MDC nos consumers Kafka.
-
-Métricas Micrometer expostas em produção via Actuator:
-
-```bash
-curl http://localhost:9082/actuator/prometheus
-curl http://localhost:9082/actuator/metrics
-```
-
-| Métrica | Tipo | Tags | Onde incrementa |
-|---------|------|------|-----------------|
-| `transaction_messages_consumed_total` | Counter | `event_type` | 5 consumers Kafka (entrada) |
-| `transaction_messages_processed_total` | Counter | `event_type` | Após processamento bem-sucedido |
-| `transaction_messages_failed_total` | Counter | `event_type` | Exceção não tratada no consumer |
-| `transaction_status_transitions_total` | Counter | `from_status`, `to_status` | `TransactionService.transition()` |
-| `transaction_events_published_total` | Counter | `event_type`, `topic` | `TransactionEventProducer` |
-| `transaction_timeouts_closed_total` | Counter | `reason` | Worker 24h/7d/11d |
-| `transaction_rest_requests_total` | Counter | `endpoint`, `status_code` | REST + `GlobalExceptionHandler` |
-| `transaction_transition_seconds` | Timer | — | `TransactionService.transition()` |
-
-Profile `prod`: endpoints `health`, `info`, `prometheus`, `metrics` + OpenTelemetry (espelhando notification-service).
+Logs com `correlationId` (MDC) nos consumers Kafka · métricas Micrometer · Actuator com `health`, `info`, `prometheus` e `metrics` em prod (`/actuator/prometheus`).
