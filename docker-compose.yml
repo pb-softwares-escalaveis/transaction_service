@@ -67,7 +67,7 @@ services:
       - leilao-network
 
   transaction-service:
-    image: nelsongrossoni/transaction_service:latest
+    image: nelsongrossoni/transaction_service:v1.1.0
     container_name: transaction-app
     depends_on:
       postgres:
