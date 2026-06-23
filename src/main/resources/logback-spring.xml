@@ -7,6 +7,20 @@
             defaultValue="unknown-service"
     />
 
+    <springProperty
+            scope="context"
+            name="LOGSTASH_HOST"
+            source="LOGSTASH_HOST"
+            defaultValue="localhost"
+    />
+
+    <springProperty
+            scope="context"
+            name="LOGSTASH_PORT"
+            source="LOGSTASH_PORT"
+            defaultValue="5000"
+    />
+
     <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
         <encoder>
             <pattern>
@@ -17,7 +31,7 @@
     </appender>
 
     <appender name="LOGSTASH" class="net.logstash.logback.appender.LogstashTcpSocketAppender">
-        <destination>localhost:5000</destination>
+        <destination>${LOGSTASH_HOST}:${LOGSTASH_PORT}</destination>
 
         <encoder class="net.logstash.logback.encoder.LogstashEncoder">
             <customFields>{"service":"${APP_NAME}"}</customFields>
